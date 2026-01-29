@@ -1,0 +1,85 @@
+name: deploy-maps-explorer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AZURE_RESOURCE_GROUP: rg-azuremaps-westus2-demo-001
+  AZURE_LOCATION: westus2
+  AZURE_ENV_NAME: demo
+  APP_PROJECT_PATH: apps/maps-explorer
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure
+        id: infra
+        run: |
+          set -euo pipefail
+          WEBAPP_NAME=$(az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "maps-explorer-${GITHUB_RUN_ID}" \
+            --template-file infra/main.bicep \
+            --parameters environmentName="$AZURE_ENV_NAME" location="$AZURE_LOCATION" \
+            --query properties.outputs.WEB_APP_NAME.value \
+            -o tsv)
+          MAPS_ACCOUNT_NAME=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "maps-explorer-${GITHUB_RUN_ID}" \
+            --query properties.outputs.MAPS_ACCOUNT_NAME.value \
+            -o tsv)
+          echo "webapp_name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
+          echo "maps_account_name=$MAPS_ACCOUNT_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Configure app settings
+        run: |
+          set -euo pipefail
+          az webapp config appsettings set \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "${{ steps.infra.outputs.webapp_name }}" \
+            --settings \
+              AZURE_TENANT_ID="${{ secrets.AZURE_TENANT_ID }}" \
+              AZURE_CLIENT_ID="${{ secrets.AZURE_MAPS_CLIENT_ID }}" \
+              AZURE_CLIENT_SECRET="${{ secrets.AZURE_MAPS_CLIENT_SECRET }}" \
+              AZURE_MAPS_SCOPE="https://atlas.microsoft.com/.default"
+
+      - name: Grant Azure Maps data access
+        run: |
+          set -euo pipefail
+          MAPS_ID=$(az resource show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "${{ steps.infra.outputs.maps_account_name }}" \
+            --resource-type "Microsoft.Maps/accounts" \
+            --query id -o tsv)
+          az role assignment create \
+            --assignee "${{ secrets.AZURE_MAPS_CLIENT_ID }}" \
+            --role "Azure Maps Data Reader" \
+            --scope "$MAPS_ID" || true
+
+      - name: Deploy web app
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ steps.infra.outputs.webapp_name }}
+          package: ${{ env.APP_PROJECT_PATH }}
+
+      - name: Output app URL
+        run: |
+          echo "App URL: https://${{ steps.infra.outputs.webapp_name }}.azurewebsites.net"

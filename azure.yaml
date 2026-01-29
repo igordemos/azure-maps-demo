@@ -1,0 +1,6 @@
+name: maps-explorer
+services:
+  maps-explorer:
+    project: apps/maps-explorer
+    language: ts
+    host: appservice

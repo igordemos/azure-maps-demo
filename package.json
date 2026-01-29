@@ -1,0 +1,8 @@
+{
+	"dependencies": {
+		"azure-maps-control": "^3.7.2"
+	},
+	"devDependencies": {
+		"tailwindcss": "^4"
+	}
+}
