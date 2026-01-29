@@ -17,6 +17,9 @@ pnpm-debug.log*
 .env
 .env.*
 
+# Azure local state
+.azure/
+
 # OS
 .DS_Store
 Thumbs.db
