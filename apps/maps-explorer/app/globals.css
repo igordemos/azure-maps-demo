@@ -1,0 +1,32 @@
+@import "tailwindcss";
+@import "azure-maps-control/dist/atlas.min.css";
+
+:root {
+	color-scheme: light;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	background: radial-gradient(1200px 800px at 20% -20%, #e3f0ff 0%, transparent 60%),
+		radial-gradient(900px 600px at 120% -10%, #e9f5ff 0%, transparent 60%),
+		#f6f9ff;
+	color: #0f172a;
+	font-feature-settings: "ss01" on, "ss02" on;
+}
+
+.glass {
+	background: rgba(255, 255, 255, 0.72);
+	backdrop-filter: blur(18px);
+	border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.grid-backdrop {
+	background-image: linear-gradient(rgba(148, 163, 184, 0.15) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+	background-size: 22px 22px;
+	mask-image: radial-gradient(circle at top, black 0%, transparent 70%);
+}
