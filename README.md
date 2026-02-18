@@ -67,6 +67,12 @@ Optional for local development (client credentials flow):
 
 > In Azure-hosted environments, prefer Managed Identity and Key Vault over client secrets.
 
+Prerequisite for Entra auth:
+
+- Create a Microsoft Entra app registration before deployment.
+- Capture its client ID, tenant ID, and client secret.
+- Grant the app's service principal the Azure Maps Data Reader role on the Maps account.
+
 ## Tests
 
 ```bash

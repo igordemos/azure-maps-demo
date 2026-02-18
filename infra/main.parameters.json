@@ -7,6 +7,21 @@
     },
     "location": {
       "value": "${AZURE_LOCATION}"
+    },
+    "azureTenantId": {
+      "value": "${AZURE_TENANT_ID}"
+    },
+    "azureClientId": {
+      "value": "${AZURE_CLIENT_ID}"
+    },
+    "azureClientSecret": {
+      "value": "${AZURE_CLIENT_SECRET}"
+    },
+    "azureMapsDataReaderPrincipalId": {
+      "value": "${AZURE_MAPS_DATA_READER_PRINCIPAL_ID}"
+    },
+    "azureMapsScope": {
+      "value": "${AZURE_MAPS_SCOPE}"
     }
   }
 }

@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import ResultTabs from "./ResultTabs";
 import History from "./History";
 import MapPreview from "./MapPreview";
 import type { ApiResponse, HistoryEntry, Param, RequestShape } from "../lib/types";
+import { certifiedLocations } from "../lib/certifiedLocations";
 import {
   buildQueryString,
   hasLatLonParam,
@@ -33,6 +35,49 @@ const presets = [
       { key: "query", value: "6301 Owensmouth Ave, Woodland Hills, CA 91367" },
       { key: "limit", value: "1" },
       { key: "countrySet", value: "US" },
+    ] as Param[],
+  },
+  {
+    id: "custom-popup",
+    label: "Custom Popup (geocode)",
+    path: "geocode",
+    params: [
+      { key: "api-version", value: "2025-01-01" },
+      { key: "query", value: "6301 Owensmouth Ave, Woodland Hills, CA 91367" },
+      { key: "limit", value: "1" },
+      { key: "countrySet", value: "US" },
+    ] as Param[],
+  },
+  {
+    id: "custom-marker",
+    label: "Custom Marker (geocode)",
+    path: "geocode",
+    params: [
+      { key: "api-version", value: "2025-01-01" },
+      { key: "query", value: "6301 Owensmouth Ave, Woodland Hills, CA 91367" },
+      { key: "limit", value: "1" },
+      { key: "countrySet", value: "US" },
+    ] as Param[],
+  },
+  {
+    id: "mobile-geocode",
+    label: "Mobile Geocode",
+    path: "geocode",
+    params: [
+      { key: "api-version", value: "2025-01-01" },
+      { key: "query", value: "6301 Owensmouth Ave, Woodland Hills, CA 91367" },
+      { key: "limit", value: "1" },
+      { key: "countrySet", value: "US" },
+    ] as Param[],
+  },
+  {
+    id: "certified-locations",
+    label: "Certified Locations",
+    path: "geocode",
+    params: [
+      { key: "api-version", value: "2025-01-01" },
+      { key: "query", value: "Woodland Hills, CA" },
+      { key: "limit", value: "1" },
     ] as Param[],
   },
   {
@@ -241,6 +286,25 @@ export default function EndpointForm() {
   const autocompleteBoxRef = useRef<HTMLDivElement | null>(null);
   const autocompleteInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [customPopupText, setCustomPopupText] = useState("");
+  const [templateBodyShopName, setTemplateBodyShopName] = useState("Contour Collision Center");
+  const [templateBodyShopAddress, setTemplateBodyShopAddress] = useState(
+    "6301 Owensmouth Ave, Woodland Hills, CA 91367"
+  );
+  const [templateBodyShopRating, setTemplateBodyShopRating] = useState("4.8");
+  const [customMarkerTitle, setCustomMarkerTitle] = useState("Farmers Body Shop");
+  const [customMarkerSubtitle, setCustomMarkerSubtitle] = useState("Certified Collision Center");
+  const [customMarkerLogo, setCustomMarkerLogo] = useState<string | null>(null);
+  const [certifiedCustomerName, setCertifiedCustomerName] = useState("Farmers Insurance");
+  const [certifiedLogo, setCertifiedLogo] = useState<string | null>(null);
+  const [certifiedMarkers, setCertifiedMarkers] = useState<
+    { lat: number; lon: number; address: string }[]
+  >([]);
+  const [certifiedLoading, setCertifiedLoading] = useState(false);
+  const [certifiedError, setCertifiedError] = useState("");
+  const [mobileQuery, setMobileQuery] = useState("6301 Owensmouth Ave, Woodland Hills, CA 91367");
+  const [mobileLimit, setMobileLimit] = useState("1");
+
   const [weatherQuery, setWeatherQuery] = useState("");
   const [weatherResults, setWeatherResults] = useState<string[]>([]);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -273,6 +337,7 @@ export default function EndpointForm() {
   const [routeDestinationCoord, setRouteDestinationCoord] = useState<{ lat: number; lon: number } | null>(null);
   const [routeResponse, setRouteResponse] = useState<ApiResponse | null>(null);
   const [routeError, setRouteError] = useState("");
+  const isMobileGeocode = selectedPreset === "mobile-geocode";
 
   const extractCoordinate = (body: unknown) => {
     if (!body) return null;
@@ -376,6 +441,17 @@ export default function EndpointForm() {
           reverseParams?: CheckboxParam[];
           weatherParams?: CheckboxParam[];
           autocompleteQuery?: string;
+          customPopupText?: string;
+          templateBodyShopName?: string;
+          templateBodyShopAddress?: string;
+          templateBodyShopRating?: string;
+          customMarkerTitle?: string;
+          customMarkerSubtitle?: string;
+          customMarkerLogo?: string | null;
+          certifiedCustomerName?: string;
+          certifiedLogo?: string | null;
+          mobileQuery?: string;
+          mobileLimit?: string;
           weatherQuery?: string;
           weatherStartDate?: string;
           weatherEndDate?: string;
@@ -394,6 +470,39 @@ export default function EndpointForm() {
         if (parsed.weatherParams) setWeatherParams(parsed.weatherParams);
         if (typeof parsed.autocompleteQuery === "string") {
           setAutocompleteQuery(parsed.autocompleteQuery);
+        }
+        if (typeof parsed.customPopupText === "string") {
+          setCustomPopupText(parsed.customPopupText);
+        }
+        if (typeof parsed.templateBodyShopName === "string") {
+          setTemplateBodyShopName(parsed.templateBodyShopName);
+        }
+        if (typeof parsed.templateBodyShopAddress === "string") {
+          setTemplateBodyShopAddress(parsed.templateBodyShopAddress);
+        }
+        if (typeof parsed.templateBodyShopRating === "string") {
+          setTemplateBodyShopRating(parsed.templateBodyShopRating);
+        }
+        if (typeof parsed.customMarkerTitle === "string") {
+          setCustomMarkerTitle(parsed.customMarkerTitle);
+        }
+        if (typeof parsed.customMarkerSubtitle === "string") {
+          setCustomMarkerSubtitle(parsed.customMarkerSubtitle);
+        }
+        if (typeof parsed.customMarkerLogo === "string" || parsed.customMarkerLogo === null) {
+          setCustomMarkerLogo(parsed.customMarkerLogo ?? null);
+        }
+        if (typeof parsed.certifiedCustomerName === "string") {
+          setCertifiedCustomerName(parsed.certifiedCustomerName);
+        }
+        if (typeof parsed.certifiedLogo === "string" || parsed.certifiedLogo === null) {
+          setCertifiedLogo(parsed.certifiedLogo ?? null);
+        }
+        if (typeof parsed.mobileQuery === "string") {
+          setMobileQuery(parsed.mobileQuery);
+        }
+        if (typeof parsed.mobileLimit === "string") {
+          setMobileLimit(parsed.mobileLimit);
         }
         if (typeof parsed.weatherQuery === "string") {
           setWeatherQuery(parsed.weatherQuery);
@@ -453,6 +562,17 @@ export default function EndpointForm() {
         reverseParams,
         weatherParams,
         autocompleteQuery,
+        customPopupText,
+        templateBodyShopName,
+        templateBodyShopAddress,
+        templateBodyShopRating,
+        customMarkerTitle,
+        customMarkerSubtitle,
+        customMarkerLogo,
+        certifiedCustomerName,
+        certifiedLogo,
+        mobileQuery,
+        mobileLimit,
         weatherQuery,
         weatherStartDate,
         weatherEndDate,
@@ -472,6 +592,17 @@ export default function EndpointForm() {
     reverseParams,
     weatherParams,
     autocompleteQuery,
+    customPopupText,
+    templateBodyShopName,
+    templateBodyShopAddress,
+    templateBodyShopRating,
+    customMarkerTitle,
+    customMarkerSubtitle,
+    customMarkerLogo,
+    certifiedCustomerName,
+    certifiedLogo,
+    mobileQuery,
+    mobileLimit,
     weatherQuery,
     weatherStartDate,
     weatherEndDate,
@@ -493,13 +624,30 @@ export default function EndpointForm() {
   }, [apiKey]);
 
   useEffect(() => {
-    if (selectedPreset === "geocode" || selectedPreset === "reverse") return;
+    if (
+      selectedPreset === "geocode" ||
+      selectedPreset === "custom-popup" ||
+      selectedPreset === "custom-marker" ||
+      selectedPreset === "mobile-geocode" ||
+      selectedPreset === "certified-locations" ||
+      selectedPreset === "reverse"
+    ) {
+      return;
+    }
     setParamsByPreset((prev) => ({ ...prev, [selectedPreset]: params }));
     setPathByPreset((prev) => ({ ...prev, [selectedPreset]: path }));
   }, [params, path, selectedPreset]);
 
   useEffect(() => {
-    if (selectedPreset !== "geocode") return;
+    if (
+      selectedPreset !== "geocode" &&
+      selectedPreset !== "custom-popup" &&
+      selectedPreset !== "custom-marker" &&
+      selectedPreset !== "mobile-geocode" &&
+      selectedPreset !== "certified-locations"
+    ) {
+      return;
+    }
     setPathByPreset((prev) => ({ ...prev, geocode: path }));
   }, [path, selectedPreset]);
 
@@ -516,10 +664,20 @@ export default function EndpointForm() {
     () => ({
       path,
       params: paramsToRecord(
-        selectedPreset === "geocode"
+        selectedPreset === "geocode" ||
+        selectedPreset === "custom-popup" ||
+        selectedPreset === "custom-marker" ||
+        selectedPreset === "certified-locations"
           ? geocodeParams
               .filter((item) => item.enabled)
               .map((item) => ({ key: item.key, value: item.value }))
+          : selectedPreset === "mobile-geocode"
+          ? [
+              { key: "api-version", value: "2025-01-01" },
+              { key: "query", value: mobileQuery.trim() },
+              { key: "limit", value: mobileLimit || "1" },
+              { key: "countrySet", value: "US" },
+            ]
           : selectedPreset === "reverse"
           ? reverseParams
               .filter((item) => item.enabled)
@@ -549,6 +707,8 @@ export default function EndpointForm() {
       geocodeParams,
       reverseParams,
       weatherParams,
+      mobileQuery,
+      mobileLimit,
     ]
   );
 
@@ -572,6 +732,11 @@ export default function EndpointForm() {
   const isValid = useMemo(
     () => isPathSafe(path) && isBaseUrlSafe(baseUrl),
     [baseUrl, path]
+  );
+
+  const isMobileReady = useMemo(
+    () => !isMobileGeocode || mobileQuery.trim().length > 0,
+    [isMobileGeocode, mobileQuery]
   );
 
   const applyPreset = (presetId: string) => {
@@ -638,6 +803,40 @@ export default function EndpointForm() {
       },
       ...prev,
     ]);
+
+  const handleCustomMarkerLogo = (file: File | null) => {
+    if (!file) {
+      setCustomMarkerLogo(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setCustomMarkerLogo(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      setCustomMarkerLogo(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCertifiedLogo = (file: File | null) => {
+    if (!file) {
+      setCertifiedLogo(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setCertifiedLogo(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      setCertifiedLogo(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const upsertParam = (key: string, value: string) => {
     setParams((prev) => {
@@ -1029,6 +1228,32 @@ export default function EndpointForm() {
     [apiKey, authMode, baseUrl, clientId, mockMode]
   );
 
+  const fetchGeocodeForAddress = useCallback(
+    async (address: string) => {
+      const endpoint = mockMode ? "/api/mock" : "/api/maps";
+      const request: RequestShape = {
+        path: "geocode",
+        params: {
+          "api-version": "2025-01-01",
+          query: address,
+          limit: "1",
+        },
+        method: "GET",
+        baseUrl,
+        auth: authMode === "key" ? { apiKey } : { clientId: clientId || undefined },
+      };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      const data = (await res.json()) as ApiResponse;
+      return extractCoordinate(data.body);
+    },
+    [apiKey, authMode, baseUrl, clientId, mockMode]
+  );
+
   const fetchRouteDirections = useCallback(
     async (origin: { lat: number; lon: number }, destination: { lat: number; lon: number }) => {
       setRouteError("");
@@ -1264,6 +1489,44 @@ export default function EndpointForm() {
     }, 400);
     return () => window.clearTimeout(handle);
   }, [fetchAutocompleteForWeather, selectedPreset, weatherQuery]);
+
+  useEffect(() => {
+    if (selectedPreset !== "certified-locations") return;
+    let active = true;
+    setCertifiedLoading(true);
+    setCertifiedError("");
+
+    Promise.all(
+      certifiedLocations.map(async (address) => {
+        try {
+          const coord = await fetchGeocodeForAddress(address);
+          return coord ? { ...coord, address } : null;
+        } catch {
+          return null;
+        }
+      })
+    )
+      .then((results) => {
+        if (!active) return;
+        const items = results.filter(Boolean) as { lat: number; lon: number; address: string }[];
+        setCertifiedMarkers(items);
+        if (items.length === 0) {
+          setCertifiedError("No certified locations could be geocoded.");
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setCertifiedError("Failed to load certified locations.");
+      })
+      .finally(() => {
+        if (!active) return;
+        setCertifiedLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchGeocodeForAddress, selectedPreset]);
 
   useEffect(() => {
     setWeatherParams((prev) =>
@@ -1741,19 +2004,18 @@ export default function EndpointForm() {
               Endpoint Path
             </label>
             <div className="flex flex-wrap gap-2">
-              {presets.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => applyPreset(preset.id)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                    selectedPreset === preset.id
-                      ? "bg-slate-900 text-white"
-                      : "bg-white text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {preset.id === "geocode"
+              {presets.map((preset) => {
+                const label =
+                  preset.id === "geocode"
                     ? "Geocode"
+                    : preset.id === "custom-popup"
+                    ? "Custom Popup"
+                    : preset.id === "custom-marker"
+                    ? "Custom Marker"
+                    : preset.id === "mobile-geocode"
+                    ? "Mobile Geocode"
+                    : preset.id === "certified-locations"
+                    ? "Certified Locations"
                     : preset.id === "reverse"
                     ? "Reverse Geocode"
                     : preset.id === "autocomplete"
@@ -1762,9 +2024,35 @@ export default function EndpointForm() {
                     ? "Weather"
                     : preset.id === "geolocation"
                     ? "IP Geolocation"
-                    : "Route"}
-                </button>
-              ))}
+                    : "Route";
+
+                if (preset.id === "mobile-geocode") {
+                  return (
+                    <Link
+                      key={preset.id}
+                      href="/mobile"
+                      className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:text-slate-900"
+                    >
+                      {label}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset.id)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      selectedPreset === preset.id
+                        ? "bg-slate-900 text-white"
+                        : "bg-white text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm">
               <div className="text-xs font-semibold text-slate-500">
@@ -1927,6 +2215,277 @@ export default function EndpointForm() {
                     </span>
                   </div>
                 </div>
+              ) : selectedPreset === "custom-popup" ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Custom Popup Text
+                    </span>
+                    <input
+                      className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+                      value={customPopupText}
+                      onChange={(event) => setCustomPopupText(event.target.value)}
+                      placeholder="Add custom text for the map popup"
+                    />
+                    <span className="text-[11px] text-slate-400">
+                      This text appears in the map popup when a location is rendered.
+                    </span>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-inner">
+                    <div className="mb-3 text-xs font-semibold text-slate-500">
+                      Template Map
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-white">
+                      <table className="min-w-full text-xs text-slate-700">
+                        <tbody>
+                          <tr className="border-t border-slate-100">
+                            <td className="w-40 bg-slate-50 px-3 py-2 text-slate-500">
+                              Body shop name
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-200/70 bg-white px-2 py-2 text-xs text-slate-800"
+                                value={templateBodyShopName}
+                                onChange={(event) => setTemplateBodyShopName(event.target.value)}
+                                placeholder="Contour Collision Center"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-t border-slate-100">
+                            <td className="w-40 bg-slate-50 px-3 py-2 text-slate-500">
+                              Body shop address
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-200/70 bg-white px-2 py-2 text-xs text-slate-800"
+                                value={templateBodyShopAddress}
+                                onChange={(event) => setTemplateBodyShopAddress(event.target.value)}
+                                placeholder="6301 Owensmouth Ave, Woodland Hills, CA 91367"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-t border-slate-100">
+                            <td className="w-40 bg-slate-50 px-3 py-2 text-slate-500">
+                              Body shop rating
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-200/70 bg-white px-2 py-2 text-xs text-slate-800"
+                                value={templateBodyShopRating}
+                                onChange={(event) => setTemplateBodyShopRating(event.target.value)}
+                                placeholder="4.8"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedPreset === "custom-marker" ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Marker Title
+                    </span>
+                    <input
+                      className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+                      value={customMarkerTitle}
+                      onChange={(event) => setCustomMarkerTitle(event.target.value)}
+                      placeholder="Farmers Body Shop"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Marker Subtitle
+                    </span>
+                    <input
+                      className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+                      value={customMarkerSubtitle}
+                      onChange={(event) => setCustomMarkerSubtitle(event.target.value)}
+                      placeholder="Certified Collision Center"
+                    />
+                    <span className="text-[11px] text-slate-400">
+                      Custom HTML marker appears on the map when a location is rendered.
+                    </span>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-inner">
+                    <div className="mb-3 text-xs font-semibold text-slate-500">
+                      Popup Template
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-white">
+                      <table className="min-w-full text-xs text-slate-700">
+                        <tbody>
+                          <tr className="border-t border-slate-100">
+                            <td className="w-40 bg-slate-50 px-3 py-2 text-slate-500">
+                              Body shop name
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-200/70 bg-white px-2 py-2 text-xs text-slate-800"
+                                value={templateBodyShopName}
+                                onChange={(event) => setTemplateBodyShopName(event.target.value)}
+                                placeholder="Contour Collision Center"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-t border-slate-100">
+                            <td className="w-40 bg-slate-50 px-3 py-2 text-slate-500">
+                              Body shop address
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-200/70 bg-white px-2 py-2 text-xs text-slate-800"
+                                value={templateBodyShopAddress}
+                                onChange={(event) => setTemplateBodyShopAddress(event.target.value)}
+                                placeholder="6301 Owensmouth Ave, Woodland Hills, CA 91367"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-t border-slate-100">
+                            <td className="w-40 bg-slate-50 px-3 py-2 text-slate-500">
+                              Body shop rating
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-200/70 bg-white px-2 py-2 text-xs text-slate-800"
+                                value={templateBodyShopRating}
+                                onChange={(event) => setTemplateBodyShopRating(event.target.value)}
+                                placeholder="4.8"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Marker Logo (48px square)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm"
+                      onChange={(event) =>
+                        handleCustomMarkerLogo(event.target.files?.[0] ?? null)
+                      }
+                    />
+                    {customMarkerLogo && (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={customMarkerLogo}
+                          alt="Custom marker logo"
+                          className="h-12 w-12 rounded-lg border border-slate-200/70 bg-white object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCustomMarkerLogo(null)}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+                        >
+                          Remove Logo
+                        </button>
+                      </div>
+                    )}
+                    <span className="text-[11px] text-slate-400">
+                      Upload a customer logo to use as the marker icon.
+                    </span>
+                  </div>
+                </div>
+              ) : selectedPreset === "mobile-geocode" ? (
+                <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-inner">
+                  <div className="text-xs font-semibold text-slate-500">Mobile Geocode</div>
+                  <input
+                    className="rounded-xl border border-slate-200/70 bg-white px-3 py-3 text-sm text-slate-800 shadow-sm"
+                    value={mobileQuery}
+                    onChange={(event) => setMobileQuery(event.target.value)}
+                    placeholder="Enter an address"
+                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={execute}
+                      disabled={!isValid || !isMobileReady || isLoading}
+                      className="rounded-2xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isLoading ? "Searching…" : "Search"}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-500">Limit</span>
+                      <select
+                        className="rounded-lg border border-slate-200/70 bg-white px-2 py-1 text-xs text-slate-700"
+                        value={mobileLimit}
+                        onChange={(event) => setMobileLimit(event.target.value)}
+                      >
+                        <option value="1">1</option>
+                        <option value="3">3</option>
+                        <option value="5">5</option>
+                      </select>
+                    </div>
+                  </div>
+                  {!isMobileReady && (
+                    <span className="text-[11px] text-rose-500">
+                      Enter an address to search.
+                    </span>
+                  )}
+                  <span className="text-[11px] text-slate-400">
+                    Optimized for mobile layout with a focused map view.
+                  </span>
+                </div>
+              ) : selectedPreset === "certified-locations" ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Customer Name
+                    </span>
+                    <input
+                      className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+                      value={certifiedCustomerName}
+                      onChange={(event) => setCertifiedCustomerName(event.target.value)}
+                      placeholder="Farmers Insurance"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Customer Logo (48px square)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm"
+                      onChange={(event) =>
+                        handleCertifiedLogo(event.target.files?.[0] ?? null)
+                      }
+                    />
+                    {certifiedLogo && (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={certifiedLogo}
+                          alt="Certified logo"
+                          className="h-12 w-12 rounded-lg border border-slate-200/70 bg-white object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCertifiedLogo(null)}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+                        >
+                          Remove Logo
+                        </button>
+                      </div>
+                    )}
+                    <span className="text-[11px] text-slate-400">
+                      Certified locations are pre-loaded from the address list.
+                    </span>
+                  </div>
+                  {certifiedLoading && (
+                    <div className="text-xs text-slate-400">Loading certified locations…</div>
+                  )}
+                  {certifiedError && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                      {certifiedError}
+                    </div>
+                  )}
+                </div>
               ) : selectedPreset === "geolocation" ? (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
@@ -2079,7 +2638,7 @@ export default function EndpointForm() {
             </div>
           </div>
 
-          {selectedPreset !== "autocomplete" && (
+          {selectedPreset !== "autocomplete" && selectedPreset !== "mobile-geocode" && (
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -2096,7 +2655,10 @@ export default function EndpointForm() {
                     Reference Values
                   </a>
                 </div>
-                  {selectedPreset === "geocode" ? (
+                  {selectedPreset === "geocode" ||
+                  selectedPreset === "custom-popup" ||
+                  selectedPreset === "custom-marker" ||
+                  selectedPreset === "certified-locations" ? (
                     <button
                       type="button"
                       onClick={addGeocodeParam}
@@ -2130,7 +2692,13 @@ export default function EndpointForm() {
                   </button>
                   )}
               </div>
-                {selectedPreset !== "geocode" && selectedPreset !== "reverse" && selectedPreset !== "weather" && (
+                {selectedPreset !== "geocode" &&
+                selectedPreset !== "custom-popup" &&
+                selectedPreset !== "custom-marker" &&
+                selectedPreset !== "mobile-geocode" &&
+                selectedPreset !== "certified-locations" &&
+                selectedPreset !== "reverse" &&
+                selectedPreset !== "weather" && (
                 <div className="flex flex-wrap gap-2">
                   {quickParams.map((param) => (
                     <button
@@ -2144,7 +2712,11 @@ export default function EndpointForm() {
                   ))}
                 </div>
               )}
-              {selectedPreset === "geocode" ? (
+              {selectedPreset === "geocode" ||
+              selectedPreset === "custom-popup" ||
+              selectedPreset === "custom-marker" ||
+              selectedPreset === "certified-locations" ||
+              selectedPreset === "mobile-geocode" ? (
                 <div className="space-y-2">
                   {geocodeParams.map((param, index) => (
                     <div
@@ -2468,7 +3040,7 @@ export default function EndpointForm() {
             {selectedPreset !== "autocomplete" && (
               <button
                 type="button"
-                disabled={!isValid || isLoading}
+                disabled={!isValid || !isMobileReady || isLoading}
                 onClick={execute}
                 className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -2538,6 +3110,34 @@ export default function EndpointForm() {
               authMode={authMode}
               apiKey={apiKey}
               clientId={clientId}
+              popupText={selectedPreset === "custom-popup" ? customPopupText : ""}
+              popupTemplate={
+                selectedPreset === "custom-popup" || selectedPreset === "custom-marker"
+                  ? {
+                      name: templateBodyShopName,
+                      address: templateBodyShopAddress,
+                      rating: templateBodyShopRating,
+                    }
+                  : undefined
+              }
+              customMarker={
+                selectedPreset === "custom-marker"
+                  ? {
+                      title: customMarkerTitle,
+                      subtitle: customMarkerSubtitle,
+                      logoUrl: customMarkerLogo,
+                    }
+                  : undefined
+              }
+              certifiedLocations={
+                selectedPreset === "certified-locations" ? certifiedMarkers : undefined
+              }
+              certifiedMarker={
+                selectedPreset === "certified-locations"
+                  ? { logoUrl: certifiedLogo, customerName: certifiedCustomerName }
+                  : undefined
+              }
+              mapHeight={isMobileGeocode ? 440 : undefined}
               showEmptyState={selectedPreset !== "autocomplete"}
               preferredZoom={selectedPreset === "geolocation" ? 2.8 : undefined}
             />
@@ -2594,7 +3194,7 @@ export default function EndpointForm() {
               )}
             </div>
           )}
-          {selectedPreset === "autocomplete" ? (
+          {isMobileGeocode ? null : selectedPreset === "autocomplete" ? (
             <div className="flex flex-col gap-6">
               <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm">
                 <h3 className="mb-3 text-sm font-semibold text-slate-700">
@@ -2618,28 +3218,30 @@ export default function EndpointForm() {
           ) : (
             <ResultTabs response={response} isLoading={isLoading} />
           )}
-          <History
-            entries={history}
-            onDelete={(id) =>
-              setHistory((prev) => prev.filter((entry) => entry.id !== id))
-            }
-            onCopyCurl={(entry) => copyText(buildCurl(entry.request, baseUrl))}
-            onRerun={(entry) => {
-              setPath(entry.request.path);
-              setParams(
-                Object.entries(entry.request.params).map(([key, value]) => ({
-                  key,
-                  value,
-                }))
-              );
-              const match = presets.find((preset) => preset.path === entry.request.path);
-              setSelectedPreset(match?.id ?? "custom");
-              if (entry.request.baseUrl) {
-                setBaseUrl(entry.request.baseUrl);
+          {!isMobileGeocode && (
+            <History
+              entries={history}
+              onDelete={(id) =>
+                setHistory((prev) => prev.filter((entry) => entry.id !== id))
               }
-              runRequest(entry.request);
-            }}
-          />
+              onCopyCurl={(entry) => copyText(buildCurl(entry.request, baseUrl))}
+              onRerun={(entry) => {
+                setPath(entry.request.path);
+                setParams(
+                  Object.entries(entry.request.params).map(([key, value]) => ({
+                    key,
+                    value,
+                  }))
+                );
+                const match = presets.find((preset) => preset.path === entry.request.path);
+                setSelectedPreset(match?.id ?? "custom");
+                if (entry.request.baseUrl) {
+                  setBaseUrl(entry.request.baseUrl);
+                }
+                runRequest(entry.request);
+              }}
+            />
+          )}
         </div>
       </div>
     </section>

@@ -9,6 +9,24 @@ type Props = {
   authMode: "entra" | "key";
   apiKey: string;
   clientId: string;
+  popupText?: string;
+  popupTemplate?: {
+    name?: string;
+    address?: string;
+    rating?: string;
+  };
+  customMarker?: {
+    title?: string;
+    subtitle?: string;
+    logoUrl?: string | null;
+  };
+  certifiedLocations?: { lat: number; lon: number; address: string }[];
+  certifiedMarker?: {
+    logoUrl?: string | null;
+    customerName?: string;
+  };
+  mapHeight?: number;
+  mapHeightClass?: string;
   showEmptyState?: boolean;
   preferredZoom?: number;
 };
@@ -270,13 +288,91 @@ const buildDirectionsUrl = (labelText: string) => {
   return `https://www.bing.com/maps?rtp=~adr.${query}`;
 };
 
-const buildPopupContent = (labelText: string) => {
+const buildPopupContent = (
+  labelText: string,
+  customText?: string,
+  popupTemplate?: { name?: string; address?: string; rating?: string }
+) => {
   const safeLabel = escapeHtml(labelText || "Selected location");
+  const safeCustom = customText ? escapeHtml(customText) : "";
+  const safeName = popupTemplate?.name ? escapeHtml(popupTemplate.name) : "";
+  const safeAddress = popupTemplate?.address ? escapeHtml(popupTemplate.address) : "";
+  const safeRating = popupTemplate?.rating ? escapeHtml(popupTemplate.rating) : "";
+  const hasTemplate = safeName || safeAddress || safeRating;
   const directionsUrl = buildDirectionsUrl(labelText || "");
   return `
-    <div style=\"padding:10px 12px;max-width:240px;\">
+    <div style=\"padding:10px 12px;width:320px;max-width:320px;box-sizing:border-box;word-break:break-word;overflow-wrap:anywhere;white-space:normal;overflow:hidden;\">
       <div style=\"font-size:12px;color:#0f172a;margin-bottom:8px;\">${safeLabel}</div>
+      ${
+        hasTemplate
+          ? `
+      <table style=\"width:100%;border-collapse:collapse;margin-bottom:8px;font-size:11px;color:#334155;table-layout:fixed;word-break:break-word;overflow-wrap:anywhere;white-space:normal;\">
+        <tr>
+          <td style=\"padding:4px 6px;background:#f8fafc;color:#64748b;width:45%;white-space:normal;\">Body shop name</td>
+          <td style=\"padding:4px 6px;word-break:break-word;overflow-wrap:anywhere;white-space:normal;\">${safeName || "-"}</td>
+        </tr>
+        <tr>
+          <td style=\"padding:4px 6px;background:#f8fafc;color:#64748b;width:45%;white-space:normal;\">Body shop address</td>
+          <td style=\"padding:4px 6px;word-break:break-word;overflow-wrap:anywhere;white-space:normal;\">${safeAddress || "-"}</td>
+        </tr>
+        <tr>
+          <td style=\"padding:4px 6px;background:#f8fafc;color:#64748b;width:45%;white-space:normal;\">Body shop rating</td>
+          <td style=\"padding:4px 6px;word-break:break-word;overflow-wrap:anywhere;white-space:normal;\">${safeRating || "-"}</td>
+        </tr>
+      </table>`
+          : ""
+      }
+      ${safeCustom ? `<div style=\"font-size:11px;color:#475569;margin-bottom:8px;\">${safeCustom}</div>` : ""}
       <a href=\"${directionsUrl}\" target=\"_blank\" rel=\"noreferrer\" style=\"display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid #e2e8f0;background:#0f172a;color:#fff;font-size:12px;text-decoration:none;\">Directions To</a>
+    </div>
+  `;
+};
+
+const buildCustomMarkerHtml = (title?: string, subtitle?: string, logoUrl?: string | null) => {
+  const safeTitle = escapeHtml(title || "Custom Marker");
+  const safeSubtitle = subtitle ? escapeHtml(subtitle) : "";
+  const safeLogo = logoUrl ? escapeHtml(logoUrl) : "";
+  const hasLogo = Boolean(safeLogo);
+  if (hasLogo) {
+    return `
+      <div style=\"transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:0;\">
+        <div style=\"width:48px;height:48px;border-radius:8px;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,0.25);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid #0f172a;\">
+          <img src=\"${safeLogo}\" alt=\"Logo\" style=\"width:100%;height:100%;object-fit:contain;\" />
+        </div>
+        <div style=\"width:14px;height:14px;background:#0f172a;transform:rotate(45deg);margin-top:-6px;\"></div>
+      </div>
+    `;
+  }
+  return `
+    <div style=\"transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:0;\">
+      <div style=\"min-width:160px;max-width:220px;padding:8px 10px;border-radius:14px;background:#0f172a;color:#fff;font-size:12px;box-shadow:0 10px 24px rgba(15,23,42,0.35);text-align:left;\">
+        <div style=\"font-weight:600;word-break:break-word;overflow-wrap:anywhere;\">${safeTitle}</div>
+        ${safeSubtitle ? `<div style=\"margin-top:4px;font-size:11px;color:#cbd5f5;word-break:break-word;overflow-wrap:anywhere;\">${safeSubtitle}</div>` : ""}
+      </div>
+      <div style=\"width:14px;height:14px;background:#0f172a;transform:rotate(45deg);margin-top:-6px;\"></div>
+      <div style=\"width:12px;height:12px;border-radius:999px;border:2px solid #fff;background:#ef4444;margin-top:-2px;\"></div>
+    </div>
+  `;
+};
+
+const buildCertifiedMarkerHtml = (
+  address: string,
+  customerName?: string,
+  logoUrl?: string | null
+) => {
+  const safeAddress = escapeHtml(address);
+  const safeCustomer = customerName ? escapeHtml(customerName) : "";
+  const safeLogo = logoUrl ? escapeHtml(logoUrl) : "";
+  return `
+    <div style=\"transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:0;\">
+      <div style=\"width:48px;height:48px;border-radius:8px;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,0.2);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid #0f172a;\">
+        ${
+          safeLogo
+            ? `<img src=\"${safeLogo}\" alt=\"Logo\" style=\\\"width:100%;height:100%;object-fit:contain;\\\" />`
+            : `<div style=\\\"font-size:11px;color:#0f172a;font-weight:600;text-align:center;padding:4px;\\\">${safeCustomer || "Certified"}</div>`
+        }
+      </div>
+      <div style=\"margin-top:6px;max-width:160px;font-size:10px;color:#0f172a;background:#fff;padding:4px 6px;border-radius:10px;box-shadow:0 8px 18px rgba(15,23,42,0.15);text-align:center;word-break:break-word;overflow-wrap:anywhere;\">${safeAddress}</div>
     </div>
   `;
 };
@@ -287,6 +383,13 @@ export default function MapPreview({
   authMode,
   apiKey,
   clientId,
+  popupText,
+  popupTemplate,
+  customMarker,
+  certifiedLocations,
+  certifiedMarker,
+  mapHeight,
+  mapHeightClass,
   showEmptyState = true,
   preferredZoom,
 }: Props) {
@@ -301,6 +404,8 @@ export default function MapPreview({
   const routeMarkerSourceRef = useRef<any>(null);
   const popupRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const markerClickRef = useRef<(() => void) | null>(null);
+  const certifiedMarkerRefs = useRef<any[]>([]);
   const [mapError, setMapError] = useState<string>("");
   const [mapReady, setMapReady] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>("");
@@ -312,6 +417,11 @@ export default function MapPreview({
   );
   const label = useMemo(() => extractLabel(response?.body ?? null), [response]);
   const routeLine = useMemo(() => extractRouteLine(response?.body ?? null), [response]);
+  const responseError = useMemo(() => {
+    if (!response || response.meta.status < 400) return "";
+    const body = response.body as { message?: string; error?: { message?: string } } | undefined;
+    return body?.message || body?.error?.message || response.meta.statusText || "Request failed.";
+  }, [response]);
 
   const authOptions = useMemo(() => {
     if (authMode === "key" && apiKey) {
@@ -495,7 +605,11 @@ export default function MapPreview({
           const coords = shape.getCoordinates() as [number, number];
           popup.setOptions({
             position: coords,
-            content: buildPopupContent(props.label || "Selected location"),
+            content: buildPopupContent(
+              props.label || "Selected location",
+              popupText,
+              popupTemplate
+            ),
           });
           popup.open(map);
         });
@@ -507,7 +621,7 @@ export default function MapPreview({
           const coords = shape.getCoordinates() as [number, number];
           popup.setOptions({
             position: coords,
-            content: buildPopupContent(props.label || "Route point"),
+            content: buildPopupContent(props.label || "Route point", popupText, popupTemplate),
           });
           popup.open(map);
         });
@@ -588,13 +702,18 @@ export default function MapPreview({
       }
     }
 
+    const shouldUseDefaultMarker =
+      !customMarker && (!certifiedLocations || certifiedLocations.length === 0);
+
     if (!map.sources.getById("result-source")) map.sources.add(source);
     source.clear();
-    const feature = new atlas.data.Feature(
-      new atlas.data.Point([coordinate.lon, coordinate.lat]),
-      { label: label || "Selected location" }
-    );
-    source.add(feature);
+    if (shouldUseDefaultMarker) {
+      const feature = new atlas.data.Feature(
+        new atlas.data.Point([coordinate.lon, coordinate.lat]),
+        { label: label || "Selected location" }
+      );
+      source.add(feature);
+    }
     map.setCamera({
       center: [coordinate.lon, coordinate.lat],
       zoom: preferredZoom ?? 14,
@@ -602,10 +721,10 @@ export default function MapPreview({
       duration: 800,
     });
 
-    if (popupRef.current && !routeLine) {
+    if (popupRef.current && !routeLine && shouldUseDefaultMarker) {
       popupRef.current.setOptions({
         position: [coordinate.lon, coordinate.lat],
-        content: buildPopupContent(label || "Selected location"),
+        content: buildPopupContent(label || "Selected location", popupText, popupTemplate),
       });
       popupRef.current.open(map);
     }
@@ -618,7 +737,17 @@ export default function MapPreview({
     } catch {
       setDebugInfo("");
     }
-  }, [coordinate, label, mapReady, routeLine, preferredZoom]);
+  }, [
+    coordinate,
+    label,
+    mapReady,
+    popupText,
+    popupTemplate,
+    routeLine,
+    preferredZoom,
+    customMarker,
+    certifiedLocations,
+  ]);
 
   useEffect(() => {
     if (!mapReady || routeLine || !routeSourceRef.current) return;
@@ -629,6 +758,106 @@ export default function MapPreview({
       // ignore
     }
   }, [mapReady, routeLine, response]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !atlasRef.current) return;
+    const map = mapRef.current;
+    const atlas = atlasRef.current;
+
+    if (routeLine || !customMarker || !coordinate) {
+      if (markerRef.current) {
+        if (markerClickRef.current) {
+          map.events.remove("click", markerRef.current, markerClickRef.current);
+          markerClickRef.current = null;
+        }
+        map.markers.remove(markerRef.current);
+        markerRef.current = null;
+      }
+      return;
+    }
+
+    const htmlContent = buildCustomMarkerHtml(
+      customMarker.title,
+      customMarker.subtitle,
+      customMarker.logoUrl
+    );
+
+    if (!markerRef.current) {
+      markerRef.current = new atlas.HtmlMarker({
+        htmlContent,
+        position: [coordinate.lon, coordinate.lat],
+        anchor: "center",
+      });
+      map.markers.add(markerRef.current);
+    } else {
+      markerRef.current.setOptions({
+        htmlContent,
+        position: [coordinate.lon, coordinate.lat],
+        anchor: "center",
+      });
+    }
+
+    if (markerRef.current && popupRef.current) {
+      if (markerClickRef.current) {
+        map.events.remove("click", markerRef.current, markerClickRef.current);
+      }
+      const clickHandler = () => {
+        const popupLabel = popupTemplate?.name || label || "Selected location";
+        popupRef.current.setOptions({
+          position: [coordinate.lon, coordinate.lat],
+          content: buildPopupContent(popupLabel, popupText, popupTemplate),
+        });
+        popupRef.current.open(map);
+      };
+      markerClickRef.current = clickHandler;
+      map.events.add("click", markerRef.current, clickHandler);
+    }
+  }, [coordinate, customMarker, label, mapReady, popupTemplate, popupText, routeLine]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !atlasRef.current) return;
+    const map = mapRef.current;
+    const atlas = atlasRef.current;
+
+    if (!certifiedLocations || certifiedLocations.length === 0 || routeLine) {
+      if (certifiedMarkerRefs.current.length > 0) {
+        map.markers.remove(certifiedMarkerRefs.current);
+        certifiedMarkerRefs.current = [];
+      }
+      return;
+    }
+
+    if (certifiedMarkerRefs.current.length > 0) {
+      map.markers.remove(certifiedMarkerRefs.current);
+      certifiedMarkerRefs.current = [];
+    }
+
+    const markers = certifiedLocations.map((item) =>
+      new atlas.HtmlMarker({
+        htmlContent: buildCertifiedMarkerHtml(
+          item.address,
+          certifiedMarker?.customerName,
+          certifiedMarker?.logoUrl ?? null
+        ),
+        position: [item.lon, item.lat],
+        anchor: "center",
+      })
+    );
+
+    if (markers.length > 0) {
+      map.markers.add(markers);
+      certifiedMarkerRefs.current = markers;
+      const bounds = atlas.data.BoundingBox.fromPositions(
+        markers.map((marker: any) => marker.getOptions().position)
+      );
+      map.setCamera({
+        bounds,
+        padding: 60,
+        type: "ease",
+        duration: 800,
+      });
+    }
+  }, [certifiedLocations, certifiedMarker, mapReady, routeLine]);
 
   useEffect(() => {
     if (!mapReady || !routeLine || !mapRef.current || !routeSourceRef.current || !atlasRef.current)
@@ -670,7 +899,7 @@ export default function MapPreview({
 
   useEffect(() => {
     if (!mapReady || !coordinate || !mapRef.current || !pinElementRef.current) return;
-    if (routeLine) return;
+    if (routeLine || customMarker) return;
     const map = mapRef.current;
     const pinEl = pinElementRef.current;
     const popupEl = popupElementRef.current;
@@ -701,7 +930,7 @@ export default function MapPreview({
       if (!popupRef.current) return;
       popupRef.current.setOptions({
         position: [coordinate.lon, coordinate.lat],
-        content: buildPopupContent(label || "Selected location"),
+        content: buildPopupContent(label || "Selected location", popupText, popupTemplate),
       });
       popupRef.current.open(map);
     };
@@ -722,7 +951,7 @@ export default function MapPreview({
       pinEl.removeEventListener("click", handlePinClick);
       map.events.remove("click", handleMapClick);
     };
-  }, [coordinate, label, mapReady, routeLine, showPopup]);
+  }, [coordinate, label, mapReady, popupText, popupTemplate, routeLine, showPopup, customMarker]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -741,7 +970,13 @@ export default function MapPreview({
             Run a request to render a map.
           </div>
         )}
-        {response && !coordinate && !isLoading && showEmptyState && (
+        {responseError && !isLoading && (
+          <div className="flex min-h-[260px] flex-col items-center justify-center gap-2 px-6 text-xs text-rose-500">
+            <div>Request failed.</div>
+            <div className="text-slate-400">{responseError}</div>
+          </div>
+        )}
+        {response && !responseError && !coordinate && !isLoading && showEmptyState && (
           <div className="flex min-h-[260px] items-center justify-center px-6 text-xs text-slate-400">
             No coordinates found in the response.
           </div>
@@ -752,13 +987,17 @@ export default function MapPreview({
             <div className="text-slate-400">{mapError}</div>
           </div>
         )}
-        <div ref={mapContainerRef} className="h-[320px] w-full" />
+        <div
+          ref={mapContainerRef}
+          className={`${mapHeightClass ?? (mapHeight ? "" : "h-[320px]")} w-full`}
+          style={mapHeight ? { height: `${mapHeight}px` } : undefined}
+        />
         {!mapReady && !mapError && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-400">
             Loading map…
           </div>
         )}
-        {!routeLine && (
+        {!routeLine && !customMarker && (!certifiedLocations || certifiedLocations.length === 0) && (
           <div ref={pinOverlayRef} className="absolute inset-0" aria-hidden="true">
             <div
               ref={pinElementRef}
@@ -772,7 +1011,7 @@ export default function MapPreview({
             />
             <div
               ref={popupElementRef}
-              className="absolute max-w-[240px] rounded-lg border border-slate-200/80 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-lg"
+              className="absolute w-[320px] max-w-[320px] break-words whitespace-normal overflow-hidden rounded-lg border border-slate-200/80 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-lg"
               style={{
                 opacity: showPopup ? 1 : 0,
                 transform: "translate(-50%, -100%)",
@@ -781,6 +1020,41 @@ export default function MapPreview({
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mb-2 text-slate-800">{label || "Selected location"}</div>
+              {popupTemplate && (
+                <div className="mb-2 overflow-hidden rounded-lg border border-slate-200/70">
+                  <table className="w-full table-fixed break-words whitespace-normal text-[11px] text-slate-600">
+                    <tbody>
+                      <tr className="border-t border-slate-100">
+                        <td className="w-[45%] bg-slate-50 px-2 py-1 text-slate-500 whitespace-normal">
+                          Body shop name
+                        </td>
+                        <td className="break-words whitespace-normal px-2 py-1 text-slate-700">
+                          {popupTemplate.name || "-"}
+                        </td>
+                      </tr>
+                      <tr className="border-t border-slate-100">
+                        <td className="w-[45%] bg-slate-50 px-2 py-1 text-slate-500 whitespace-normal">
+                          Body shop address
+                        </td>
+                        <td className="break-words whitespace-normal px-2 py-1 text-slate-700">
+                          {popupTemplate.address || "-"}
+                        </td>
+                      </tr>
+                      <tr className="border-t border-slate-100">
+                        <td className="w-[45%] bg-slate-50 px-2 py-1 text-slate-500 whitespace-normal">
+                          Body shop rating
+                        </td>
+                        <td className="break-words whitespace-normal px-2 py-1 text-slate-700">
+                          {popupTemplate.rating || "-"}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {popupText && (
+                <div className="mb-2 text-[11px] text-slate-500">{popupText}</div>
+              )}
               <a
                 href={buildDirectionsUrl(label || "")}
                 target="_blank"
@@ -798,7 +1072,7 @@ export default function MapPreview({
           </div>
         )}
       </div>
-      {label && !routeLine && (
+      {label && !routeLine && !customMarker && (!certifiedLocations || certifiedLocations.length === 0) && (
         <div className="text-xs text-slate-500">
           Pinned: <span className="font-semibold text-slate-700">{label}</span>
         </div>
